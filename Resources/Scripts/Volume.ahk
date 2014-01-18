@@ -1,126 +1,104 @@
-#NoTrayIcon
-#include %A_ScriptDir%\lib\COM_L Unicode.ahk
-#include %A_ScriptDir%\lib\VA.ahk     
-
-#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
 #SingleInstance force
+#NoTrayIcon
 
-SetBatchLines -1
+;---------- Volume OSD
 
-COM_Init()
-vol_Master := VA_GetMasterVolume()
+;------ User Variables ( Feel free to change these )
 
-;  __________________________________________________ 
-; / CONFIGURATION                                    \
+Gui_X				:= ""
+Gui_Y				:= "y50"
 
-; The percentage by which to raise or lower the volume each time
-vol_Step = 5
-; How long to display the volume level bar graphs (in milliseconds)
-vol_DisplayTime = 1000
-; Transparency of window (0-255)
-vol_TransValue = 192
-; Bar's background colour
-vol_CW = EEEEEE    
-vol_Width = 200  ; width of bar
-vol_Thick = 20   ; thickness of bar
-; Bar's screen position
-vol_PosX := A_ScreenWidth - vol_Width - 50
-vol_PosY := A_ScreenHeight - vol_Thick - 100
-; Put back on left
-vol_PosX := 50
 
-; \__________________________________________________/
+Back_Colour			:= 0x000000
+Font_Colour			:= 0xFFFFFF
+BackBar_Colour		:= 0x000000
+Bar_Colour			:= 0x0000FF
 
-vol_BarOptionsMaster = 1:B1 ZH%vol_Thick% ZX8 ZY4 W%vol_Width% X%vol_PosX% Y%vol_PosY% CW%vol_CW%
 
-;  __________________________________________________ 
-; / HOTKEYS                                          \
+VolUp_Key			:= "#WheelUp"
+VolDown_Key			:= "#WheelDown"
+VolMute_Key			:= "#MButton"
+Ammount				:= 2
 
-; Decrease Volume
-$Volume_down::Gosub DecreaseVolume
-#Down::Gosub DecreaseVolume
-#WheelDown:: Gosub DecreaseVolume
+Timeout				:= 700
 
-; Increase Volume
-$Volume_up:: Gosub IncreaseVolume
-#Up:: Gosub IncreaseVolume
-#WheelUp:: Gosub IncreaseVolume
+Max_Trans			:= 200
 
-; Mute Volume
-#ESC:: Gosub MuteVolume
-#MButton:: Gosub MuteVolume
 
-; \__________________________________________________/
+;------- End of user variables
 
-DecreaseVolume:
-	if vol_Master > .01
-	{
-		VA_SetMasterVolume(vol_Master-=vol_Step)
 
-		if vol_Master <= 0
-		{
-			VA_SetMute(True)
-		}
-	}
+Update 				:= 0
 
-	Gosub, vol_ShowBars
-return
+SoundGet, Vol
+Curr_Vol			:= Vol
 
-IncreaseVolume:
-	if vol_Master <= 99
-	{
-		VA_SetMasterVolume(vol_Master+=vol_Step)
+Trans 				:= Max_Trans
 
-		if vol_Master > 1
-		{
-				VA_SetMute(False)
-		}
-	}
+Gui, -Caption +ToolWindow +AlwaysOnTop 
+Gui, Color, % Back_Colour, 
+Gui, Font, c%Font_Colour% s12
+Gui, Add, Text, w500 Center, Volume
+Gui, Font
+Gui, Add, Progress, w500 vProgress c%Bar_Colour% +Background%BackBar_Colour%, % Curr_Vol
+Gui, Font, c%Font_Colour% s24
+SoundGet, Vol
+RegExMatch( Vol, "(?<Percent>\d+)\.", rg )
+Gui, Add, Text, w500 Center vVol, % rgPercent
+Gui, Show, NoActivate h105 w530 %Gui_X% %Gui_Y%, Vol_OSD
 
-	Gosub, vol_ShowBars
-return
+WinSet, Region, w530 h105 R10-10 0-0, Vol_OSD
+WinSet, Transparent, %Trans%, Vol_OSD
 
-MuteVolume:
-	if vol_Master > 0
-	{
-		mutedVolume := vol_Master
-		VA_SetMasterVolume(0)
-		VA_SetMute(True)
-	} else {
-		VA_SetMasterVolume(mutedVolume)
-		VA_SetMute(False)
-	}
 
-	Gosub, vol_ShowBars
-return
+; Gui, -Caption +AlwaysOnTop +ToolWindow +E0x20 +SysMenu
+Hotkey, % VolUp_Key, Volume_Up
+Hotkey, % VolDown_Key, Volume_Down
+Hotkey, % VolMute_Key, Volume_MuteUnmute
+SetTimer, Update, 50
 
-vol_ShowBars:
-	; Get volumes in case the user or an external program changed them:
-	vol_Master := VA_GetMasterVolume()
-	vol_Mute := VA_GetMasterMute()
-	if vol_Mute <> 1
-	{
-	  vol_Colour = Green    
-	  vol_Text = Volume
-	}
-	else
-	{
-	  vol_Colour = Red      
-	  vol_Text = Volume (muted)
-	}
-	; To prevent the "flashing" effect, only create the bar window if it doesn't already exist:
-	IfWinNotExist, VolumeOSDxyz
-	{
-		Progress, %vol_BarOptionsMaster% CB%vol_Colour% CT%vol_Colour%, , %vol_Text%, VolumeOSDxyz
-		WinSet, Transparent, %vol_TransValue%, VolumeOSDxyz
-	}
-	Progress, 1:%vol_Master%, , %vol_Text%
-	SetTimer, vol_BarOff, %vol_DisplayTime%
+SetTimer, Fade, % "-" Timeout
+
 return
 
 
-vol_BarOff:
-	SetTimer, vol_BarOff, off
-	Progress, 1:Off
+Fade:
+	While ( Trans > 0 && Update = 0)
+	{	Trans -= 10
+		WinSet, Transparent, % Trans, Vol_OSD
+		Sleep, 5
+	}
+Return
+
+
+Update:
+	Update				:= 0
+	SoundGet, Vol
+	If ( Vol <> Curr_Vol )
+	{	Update 			:= 1
+		GuiControl,, Progress, % Vol
+		RegExMatch( Vol, "(?<Percent>\d+)\.", rg )
+		GuiControl,, Vol, % rgPercent
+		Curr_Vol 		:= Vol
+		
+		While ( Trans < Max_Trans )
+		{	Trans 		+= 20
+			WinSet, Transparent, % Trans, Vol_OSD 
+			Sleep 1
+		}	
+		SetTimer, Fade, % "-" Timeout
+	}
+Return
+
+Volume_Down:
+	SoundSet, -%Ammount%, MASTER
 return
 
+
+Volume_Up:
+	SoundSet, +%Ammount%, MASTER
+Return
+
+Volume_MuteUnmute:
+	SoundSet, +1, , MUTE
+Return
