@@ -1,206 +1,186 @@
-OnExit handle_exit
-    
-p_w = 200                                    ; thumbnail width
-p_h = 150                                    ; height
-Left    := A_ScreenWidth - p_w               ; initial position
-Height1 := A_ScreenHeight / 4
-Height2 := A_ScreenHeight - Height1
-Trans :=  "Off"                         ; transparency level
+; initializing the script:
+#SingleInstance force
+#NoTrayIcon
+#NoEnv
+#KeyHistory 0
+SetWorkingDir %A_ScriptDir%
+#include %A_ScriptDir%\lib\Thumbnail.ahk
 
-Hotkey, #w, AddWatch
-Hotkey, #q, RemoveWatch
-Hotkey, #a, ShowHideGui
-Hotkey, ^+LButton , define_region
+;--- Script to monitior a window or section of a window (such as a progress bar, or video) in a resizable live preview window
 
-Gui +AlwaysOnTop  +Owner +Resize +ToolWindow ; window for the dock
+;--- This is an update (in terms of functionality) to the original livewindows ahk script by Holomind http://www.autohotkey.com/forum/topic11588.html
+;--- which takes advantage of windows vista/7 Aeropeak. The script relies on Thumbnail.ahk, a great script by relmaul.esel, http://www.autohotkey.com/forum/topic70839.html
+;--------------------------------------------------------------------------------------------
 
-ypic =0
-Loop 10,                                     ; prepare 10 thumbs to be clicked
-{
-  Gui, Add, Pic , gRestoreWin x0 y%ypic% w%p_w% h100 vPic%a_index%			; add dock-slots to gui
-  ypic +=100
-}
-
-Gui Show, NoActivate w%p_w% h32 x%Left% y%Height2%, LiveWindows
-
-WinGet LiveWindowsID, id, LiveWindows
-WinSet, Transparent, %Trans%, LiveWindows       ; Make Window Transparent for coolness and usability
-
-hdc_frame := DllCall( "GetDC", UInt, LiveWindowsID )
-hdc_buffer := DllCall("gdi32.dll\CreateCompatibleDC", UInt,  hdc_frame)  ; buffer
-hbm_buffer := DllCall("gdi32.dll\CreateCompatibleBitmap", UInt,hdc_frame, Int,A_ScreenWidth, Int,A_ScreenHeight)
-DllCall( "gdi32.dll\SelectObject", UInt,hdc_buffer, UInt,hbm_buffer)
-
-; comment this line for speed but less quality
-DllCall( "gdi32.dll\SetStretchBltMode", "uint", hdc_frame, "int", 4 )  ; Halftone better quality with stretch
-
-SetTimer update_dock, 1000                   ; x sec update
-                                             ; flow through 1st call (is efficient, but introduces bugs easily!)
-update_dock:
-  WinGetPos ,,, p_w2, p_h2, LiveWindows       ; get size of LiveWindows Window
-  p_w2 := p_w2 -8                             ; adjust sizes (margins, borders ..)
-
-  ypos= 0                                    ; offset for each thumbnail
-  nr  = 0                                    ; which thumbnail
-
-  WinGet ids, list,,,Program Manager         ; all active windows-tasks (processes)
-  Loop %ids% {
-     task_id := ids%a_index%                 ; id of this window
-     WinGetPos ,,, w, h, ahk_id %task_id%
-     WinGetTitle,title,ahk_id %task_id%
-
-                                             ; try to match mediumsize dialog-boxes like alerts/copy or userdefined with #w
-     if ( title <> "LiveWindows" and title <> "" and title <> " "  and (( w > 300 and h < 300 and h > 50 ) or watch_me_%task_id% = 1 ) )
-     {              
-      
-      result := DllCall("PrintWindow", UInt,task_id, UInt,hdc_buffer, UInt,0)
-      
-      wx1 := watch_me_x1_%task_id%
-      wy1 := watch_me_y1_%task_id%
-      ww  := watch_me_w_%task_id%
-      wh  := watch_me_h_%task_id%
-      nr  += 1
-      
-      ;ToolTip, %task_id% %current_id% "..." %title% "x" %wx1% "v" %onoff% "result:" %result% "hdc_buffer:" %hdc_buffer% 
-
-       if  wx1 <>
-       {
-        h1 := wh * ( p_w2 / ww )                  ; autosize (seems not exaclty right?)
-      
-        DllCall("gdi32.dll\StretchBlt", UInt,hdc_frame, Int,0, Int,ypos, Int,p_w2, Int,h1
-              , UInt,hdc_buffer, Int, wx1, Int,wy1, Int,ww, Int,wh ,UInt,0xCC0020) ; SRCCOPY
-       }
-       else
-       {
-         h1 := h * ( p_w2 / w )                  ; autosize (seems not exaclty right?)
-         DllCall("gdi32.dll\StretchBlt", UInt,hdc_frame, Int,0, Int,ypos, Int,p_w2, Int,h1
-              , UInt,hdc_buffer, Int,0, Int,0, Int,w, Int,h ,UInt,0xCC0020) ; SRCCOPY
-       }
-
-       watch_me_id_%nr% := task_id    ; store src-window id for later restore
-       watch_me_title_%nr% := title
-
-       GuiControl, Move, Pic%nr%, X0 Y%ypos% W%p_w2% H%h1%
-       
-       ypos += h1                          ; move down to next thumbnail-position
-    }
-  }
-  WinMove LiveWindows,,,,,ypos +32         ; resize to make pseudo-transparent
-Return
-
-AddWatch:
-    WinGet current_id , id , A         ; get ahk_id of foreground window
-   
-    watch_me_%current_id% = 1
-Return
-
-RemoveWatch:
-    WinGet current_id , id , A         ; get ahk_id of foreground window
-
-    watch_me_%current_id% =
-    watch_me_x1_%current_id% = 
-Return
-
-RestoreWin: 
-    StringReplace, pos , A_GuiControl, Pic
-    xid    := watch_me_id_%pos%
-    WinActivate, ahk_id %xid%
-    Gosub, ScreenBottom
-Return
-
-ShowHideGui:
-   if ( DllCall( "IsWindowVisible", "uint", LiveWindowsID ) )
-      Gui, Hide
-   else
-      Gui, Show 
-Return 
+Hotkey, #^+LButton , start_defining_region
+Hotkey, #w, watchWindow
 
 
-define_region:
-   CoordMode, Mouse, Relative                ; relative to window not screen
-   MouseGetPos, start_x, start_y             ; start position of mouse
-   ToolTip, %A_Space%, start_x, start_y      ; pseudo layer
-   WinSet, Transparent, 150, ahk_class tooltips_class32 ; draw "layer" as feedback
-   SetTimer mouse, 50                        ; check every 50ms for mouseup
-Return
-
-mouse:
-   MouseGetPos, current_x, current_y
-   WinMove, ahk_class tooltips_class32, , , , % current_x - start_x, % current_y - start_y
-   If GetKeyState("LButton", "P")
-      Return
-   SetTimer mouse, OFF
-   ToolTip
-   MouseGetPos, end_x, end_y
-   ;TrayTip, ,you selected %start_x% %start_y% %end_x% %end_y%, , 5
-
-   width := end_x - start_x
-   height := end_y - start_y
-
-   WinGet current_id , id , A         ; get ahk_id of foreground window
-
-   ;WinGetTitle,title, ahk_id %current_id%
-   ;tooltip, "current" %current_id% %title%
-
-
-   watch_me_x1_%current_id% := start_x
-   watch_me_x2_%current_id% := end_x
-   watch_me_y1_%current_id% := start_y
-   watch_me_y2_%current_id% := end_y
-   watch_me_w_%current_id%  := width
-   watch_me_h_%current_id%  := height
-
-   ;WinGetPos ,src_x, src_y, src_w, src_h, A
-   ;watch_me_src_y_%current_id% := src_y
-   ;watch_me_src_x_%current_id% := src_x
-
-    Gosub, ScreenBottom         ; make it minimized
+; msgbox, Press win+w to watch the entire active window `n`nOr hold down ctrl+shift and drag a box around the `narea you are interested in to watch a specific region
 return
 
-ScreenBottom:
-   ; when clicked then use current window
-   WinGet current_id , id , A         ; get ahk_id of foreground window
+;--------------------------------------------------------------------------------------------
 
-   minimized := minimized_state_%current_id%
-   screenborder_x := 
-   screenborder_y := A_ScreenHeight - 24
-   if minimized = 
-   {
-     minimized_state_%current_id% := 1
-     WinGetPos ,wx,wy,ww,wh, ahk_id %current_id%
-     minmized_x_%current_id% := wx
-     minmized_y_%current_id% := wy
+watchWindow:
 
-     WinMove , ahk_id %current_id%,, screenborder_x,screenborder_y       ; move to screenborder (keep x-pos)
-   }
-   else
-   {
-      x := minmized_x_%current_id% 
-      y := minmized_y_%current_id% 
+   WinGetClass, class, A    ; get ahk_id of foreground window
+   targetName = ahk_class %class%  ; get target window id
+   WinGetPos, , , Rwidth, Rheight, A
+   start_x := 0
+   start_y := 0
+   sleep, 500   
+      
+   ThumbWidth := 400
+   ThumbHeight := 400
+   thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
+   
+return
 
-      WinMove , ahk_id %current_id%,, x,y       ; restore
-      minimized_state_%current_id% :=
-   }
-return 
+start_defining_region:
 
-RestoreAll:
-    WinGet, ids, list,,, Program Manager
-	Loop, %ids%
-	{
-		StringTrimRight, id, ids%a_index%, 0				; find the id of this window
-	    if minimized_state_%id% = 1
-        {
-          WinActivate, ahk_id %id%
-          Gosub, ScreenBottom
-        }    
-	}
+
+      Gui, Destroy  
+      Thumbnail_Destroy(thumbID)
+
+   CoordMode, Mouse, Relative                ; relative to window not screen
+   MouseGetPos, start_x, start_y             ; start position of mouse
+   SetTimer end_defining_region, 200                        ; check every 50ms for mouseup
+   
+   
 Return
 
-GuiClose:
-handle_exit:
-   DllCall("gdi32.dll\DeleteObject", UInt,h_region )
-   DllCall("gdi32.dll\DeleteObject", UInt,hbm_buffer)
-   DllCall("gdi32.dll\DeleteDC", UInt,hdc_frame )
-   DllCall("gdi32.dll\DeleteDC", UInt,hdc_buffer)
-   Gosub, RestoreAll
-ExitApp 
+end_defining_region:
+   
+   ; get the region dimensions
+   MouseGetPos, current_x, current_y 
+   
+   Rheight := abs(current_y - start_y)
+   Rwidth := abs(current_x - start_x)
+   
+   WinGetPos, win_x, win_y, , , A
+   
+   P_x := start_x + win_x
+   P_y := start_y + win_y
+   
+   if (current_x < start_x)
+       P_x := current_x + win_x
+
+   if (current_y < start_y)
+       P_y := current_y + win_y
+     
+   ; draw a box to show what is being defined
+   Progress, B1 CWffdddd CTff5555 ZH0 fs13 W%Rwidth% H%Rheight% x%P_x% y%P_y%, , ,getMyRegion
+   WinSet, Transparent, 110, getMyRegion
+  
+  ; if mouse not released then loop through above code...
+   If GetKeyState("LButton", "P")
+      Return
+    
+   ;...otherwise, stop defining region, and start thumbnail ------------------------------->
+   SetTimer end_defining_region, OFF
+      
+   Progress, off
+      
+   MouseGetPos, end_x, end_y
+   if (end_x < start_x)
+       start_x := end_x
+
+   if (end_y < start_y)
+       start_y := end_y
+     
+   WinGetClass, class, A    ; get ahk_id of foreground window
+
+   targetName = ahk_class %class%  ; get target window id
+  
+  
+   sleep, 500
+   ThumbWidth := Rwidth
+   ThumbHeight := Rheight
+   thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
+
+return
+
+
+
+mainCode(targetName,windowWidth,windowHeight,RegionX,RegionY,RegionW,RegionH)
+{
+; get the handles:
+Gui +LastFound
+hDestination := WinExist() ; ... to our GUI...
+hSource := WinExist(targetName) ;
+
+; creating the thumbnail:
+hThumb := Thumbnail_Create(hDestination, hSource) ; you must get the return value here!
+
+; getting the source window dimensions:
+Thumbnail_GetSourceSize(hThumb, width, height)
+
+  ;-- make sure ratio is correct
+  CorrectRatio := RegionW / RegionH
+  testWidth := windowHeight * CorrectRatio
+  if (windowWidth <  testWidth)
+  {
+     windowHeight := windowWidth / CorrectRatio
+  }
+;  else
+;  {
+;     windowWidth := testWidth
+;  }
+  
+
+; then setting its region:
+Thumbnail_SetRegion(hThumb, 0, 0 , windowWidth, windowHeight, RegionX , RegionY ,RegionW, RegionH)
+
+
+
+; now some GUI stuff:
+Gui +AlwaysOnTop +ToolWindow +Resize 
+
+; Now we can show it:
+Thumbnail_Show(hThumb) ; but it is not visible now...
+Gui Show, w%windowWidth% h%windowHeight%, Live Thumbnail ; ... until we show the GUI
+OnMessage(0x201, "WM_LBUTTONDOWN")
+
+
+return hThumb
+}
+
+
+GuiSize:
+  ;if ErrorLevel = 1  ; The window has been minimized.  No action needed.
+  ;  return
+  
+ Thumbnail_Destroy(thumbID)
+  ThumbWidth := A_GuiWidth
+  ThumbHeight := A_GuiHeight
+ thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
+return
+
+;----------------------------------------------------------------------
+
+GuiClose: ; in case the GUI is closed:
+  Thumbnail_Destroy(thumbID) ; free the resources
+ExitApp
+
+
+WM_LBUTTONDOWN(wParam, lParam)
+{
+    mX := lParam & 0xFFFF
+    mY := lParam >> 16
+    SendClickThrough(mX,mY)
+}
+
+SendClickThrough(mX,mY)
+{
+  global 
+  
+  convertedX := Round((mX / ThumbWidth)*Rwidth + start_x)
+  convertedY := Round((mY / ThumbHeight)*Rheight + start_y)
+  ;msgBox, x%convertedX% y%convertedY%, %targetName%
+  ControlClick, x%convertedX% y%convertedY%, %targetName%,,,, NA
+;  sleep, 250
+;  ControlClick, x%convertedX% y%convertedY%, %targetName%,,,, NA u
+}
+
+
+

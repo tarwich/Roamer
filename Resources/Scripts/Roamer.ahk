@@ -71,7 +71,7 @@ LaunchStartupApplications:
 	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\EasyDrag7.ahk"
 	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\Volume.ahk"
 	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\Snippets.ahk"
-	; Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\LiveWindows.ahk"
+	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\LiveWindows.ahk"
 return ; /*}}}*/
 
 ;  _[ Make Start Menu ]______________________________ /*{{{*/
