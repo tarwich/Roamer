@@ -5,6 +5,7 @@
 #KeyHistory 0
 SetWorkingDir %A_ScriptDir%
 #include %A_ScriptDir%\lib\Thumbnail.ahk
+#include %A_ScriptDir%\lib\AutoUpdate.ahk
 
 ;--- Script to monitior a window or section of a window (such as a progress bar, or video) in a resizable live preview window
 
@@ -15,88 +16,95 @@ SetWorkingDir %A_ScriptDir%
 Hotkey, #^+LButton , start_defining_region
 Hotkey, #w, watchWindow
 
-
 ; msgbox, Press win+w to watch the entire active window `n`nOr hold down ctrl+shift and drag a box around the `narea you are interested in to watch a specific region
 return
 
 ;--------------------------------------------------------------------------------------------
 
-watchWindow:
+MyHWND := 0
 
-   WinGetClass, class, A    ; get ahk_id of foreground window
-   targetName = ahk_class %class%  ; get target window id
-   WinGetPos, , , Rwidth, Rheight, A
-   start_x := 0
-   start_y := 0
-   sleep, 500   
-      
-   ThumbWidth := 400
-   ThumbHeight := 400
-   thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
-   
+watchWindow:
+	WinGet, hwnd, ID, A
+	; Watch key on live window causes it to hide
+	if(hwnd = MyHWND) {
+		Gui, Hide	
+		Return
+	}
+	
+	WinGetClass, class, A    ; get ahk_id of foreground window
+	targetName = ahk_class %class%  ; get target window id
+	WinGetPos, , , Rwidth, Rheight, A
+	start_x := 0
+	start_y := 0
+	sleep, 500   
+		
+	ThumbWidth := 400
+	ThumbHeight := 400
+	thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
+	
 return
 
 start_defining_region:
 
 
-      Gui, Destroy  
-      Thumbnail_Destroy(thumbID)
+		Gui, Destroy  
+		Thumbnail_Destroy(thumbID)
 
-   CoordMode, Mouse, Relative                ; relative to window not screen
-   MouseGetPos, start_x, start_y             ; start position of mouse
-   SetTimer end_defining_region, 200                        ; check every 50ms for mouseup
-   
-   
+	CoordMode, Mouse, Relative                ; relative to window not screen
+	MouseGetPos, start_x, start_y             ; start position of mouse
+	SetTimer end_defining_region, 200                        ; check every 50ms for mouseup
+	
+	
 Return
 
 end_defining_region:
-   
-   ; get the region dimensions
-   MouseGetPos, current_x, current_y 
-   
-   Rheight := abs(current_y - start_y)
-   Rwidth := abs(current_x - start_x)
-   
-   WinGetPos, win_x, win_y, , , A
-   
-   P_x := start_x + win_x
-   P_y := start_y + win_y
-   
-   if (current_x < start_x)
-       P_x := current_x + win_x
+	
+	; get the region dimensions
+	MouseGetPos, current_x, current_y 
+	
+	Rheight := abs(current_y - start_y)
+	Rwidth := abs(current_x - start_x)
+	
+	WinGetPos, win_x, win_y, , , A
+	
+	P_x := start_x + win_x
+	P_y := start_y + win_y
+	
+	if (current_x < start_x)
+		 P_x := current_x + win_x
 
-   if (current_y < start_y)
-       P_y := current_y + win_y
-     
-   ; draw a box to show what is being defined
-   Progress, B1 CWffdddd CTff5555 ZH0 fs13 W%Rwidth% H%Rheight% x%P_x% y%P_y%, , ,getMyRegion
-   WinSet, Transparent, 110, getMyRegion
+	if (current_y < start_y)
+		 P_y := current_y + win_y
+	  
+	; draw a box to show what is being defined
+	Progress, B1 CWffdddd CTff5555 ZH0 fs13 W%Rwidth% H%Rheight% x%P_x% y%P_y%, , ,getMyRegion
+	WinSet, Transparent, 110, getMyRegion
   
   ; if mouse not released then loop through above code...
-   If GetKeyState("LButton", "P")
-      Return
-    
-   ;...otherwise, stop defining region, and start thumbnail ------------------------------->
-   SetTimer end_defining_region, OFF
-      
-   Progress, off
-      
-   MouseGetPos, end_x, end_y
-   if (end_x < start_x)
-       start_x := end_x
+	If GetKeyState("LButton", "P")
+		Return
+	 
+	;...otherwise, stop defining region, and start thumbnail ------------------------------->
+	SetTimer end_defining_region, OFF
+		
+	Progress, off
+		
+	MouseGetPos, end_x, end_y
+	if (end_x < start_x)
+		 start_x := end_x
 
-   if (end_y < start_y)
-       start_y := end_y
-     
-   WinGetClass, class, A    ; get ahk_id of foreground window
+	if (end_y < start_y)
+		 start_y := end_y
+	  
+	WinGetClass, class, A    ; get ahk_id of foreground window
 
-   targetName = ahk_class %class%  ; get target window id
+	targetName = ahk_class %class%  ; get target window id
   
   
-   sleep, 500
-   ThumbWidth := Rwidth
-   ThumbHeight := Rheight
-   thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
+	sleep, 500
+	ThumbWidth := Rwidth
+	ThumbHeight := Rheight
+	thumbID := mainCode(targetName,ThumbWidth,ThumbHeight,start_x,start_y,Rwidth,Rheight)
 
 return
 
@@ -106,6 +114,8 @@ mainCode(targetName,windowWidth,windowHeight,RegionX,RegionY,RegionW,RegionH)
 {
 ; get the handles:
 Gui +LastFound
+global MyHWND
+WinGet, MyHWND, ID
 hDestination := WinExist() ; ... to our GUI...
 hSource := WinExist(targetName) ;
 
@@ -120,7 +130,7 @@ Thumbnail_GetSourceSize(hThumb, width, height)
   testWidth := windowHeight * CorrectRatio
   if (windowWidth <  testWidth)
   {
-     windowHeight := windowWidth / CorrectRatio
+	  windowHeight := windowWidth / CorrectRatio
   }
 ;  else
 ;  {
@@ -165,9 +175,9 @@ ExitApp
 
 WM_LBUTTONDOWN(wParam, lParam)
 {
-    mX := lParam & 0xFFFF
-    mY := lParam >> 16
-    SendClickThrough(mX,mY)
+	 mX := lParam & 0xFFFF
+	 mY := lParam >> 16
+	 SendClickThrough(mX,mY)
 }
 
 SendClickThrough(mX,mY)
