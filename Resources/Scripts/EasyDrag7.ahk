@@ -39,8 +39,8 @@
 	#RButton UP::Gosub, StopSizing
 
 	; Shade (Roll up/down)
-	$WheelUp::Gosub, RollUp
-	$WheelDown::Gosub, RollDown
+	; $WheelUp::Gosub, RollUp
+	; $WheelDown::Gosub, RollDown
 
 ; \__________________________________________________/ }}}
 
