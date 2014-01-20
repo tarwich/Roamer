@@ -1,100 +1,127 @@
-;  __________________________________________________ 
-; / PREAMBLE                                         \ /*{{{*/
-; \__________________________________________________/ /*}}}*/
-
-;  __________________________________________________ 
-; / CHANGELOG                                        \ /*{{{*/
-; 1 Aug 2010
-; - Converted engine and script to AutoHotkey_L
-; - Fixed bug where tray menu didn't always hide if 
-; 	invoked when visible
-; - Added COM_L libraries
-; 29 Sep 2010
-; - Added LiveWindows.ahk to startup programs
-; TODO: Make startup programs configurable
-; \__________________________________________________/ /*}}}*/
-
-;  __________________________________________________ 
-; / CONFIGURATION                                    \ /*{{{*/
-
 #SingleInstance force
 #Persistent
-
-MY_NAME = Samuel Dillow
-MENU_WIDTH = 100
-MENU_HEIGHT = 200
-
-; \__________________________________________________/ /*}}}*/
-
-;  __________________________________________________ 
-; / HOTKEYS                                          \ /*{{{*/
-
-; Don't actually execute these hotkeys
-Goto Main
-
-; \__________________________________________________/ /*}}}*/
+#Include <AutoUpdate>
 
 ; --------------------------------------------------
+; Main
 ; 
-;  Application
-; 
+; Main program entry point
 ; --------------------------------------------------
+Main:
+	; Change into the base directory of the script
+	SetWorkingDir %A_ScriptDir%/../../
+		
+	; Constants
+	APPLICATIONS_DIR := A_WorkingDir . "\Resources\Applications"
+	SCRIPT_DIR := A_WorkingDir . "\Resources\Scripts"
+	AUTOHOTKEY_EXE := APPLICATIONS_DIR . "\AutoHotkey\AutoHotkey.exe"
+	DATA_DIR := A_WorkingDir	. "\Resources\data"
+	
+	global Roamer := {DataDir:DATA_DIR
+		, ApplicationsDir: APPLICATIONS_DIR
+		, ScriptDir: SCRIPT_DIR
+		, Ahk: AUTOHOTKEY_EXE
+		, ConfigFile: DATA_DIR . "\Roamer.cfg"
+		, Autoload: []}
+	
+	file := FileOpen(Roamer.ConfigFile, "r")
+	
+	while(!file.AtEOF)
+	{
+		line := file.ReadLine()
+		
+		if(SubStr(line, 1, 1) != "`t")
+			section = % SubStr(line, 1, InStr(line, ":")-1)
+		else
+		{
+			i := InStr(line, ":")
+			key := RegExReplace(SubStr(line, 1, i-1), "(^\s*|\s*$)")
+			value := RegExReplace(SubStr(line, i+1), "(^\s*|\s*$)")
+			
+			if(section == "Autoload")
+				Roamer.Autoload[key] := value
+		}
+	}
+	
+	file.Close()
+		
+	; Setup the menu that should show in the tray
+	Gosub SetupTrayMenu
+	; Run the applications
+	Gosub LaunchStartupApplications
+Return
 
-#Include %A_ScriptDir%\lib\WindowMessages.ahk
 
-;  _[ Enable Start Menu ]____________________________/*{{{*/
-; |                                                  |
-; | Allow the start menu to be displayed             |
-; |__________________________________________________|
-EnableStartMenu:
-	guiVisible = false
-return ; /*}}}*/
 
-;  _[ Hide Start Menu ]______________________________/*{{{*/
-; |                                                  |
-; | Handle closing (hiding) of the GUI window        |
-; |__________________________________________________|
-HideStartMenu()
-{
-	Gui, Show, Hide
-	; Allow other messages to process before setting 
-	; the start menu status to hidden
-	SetTimer, EnableStartMenu, -150
-} ; /*}}}*/
+; --------------------------------------------------
+; Disabled
+; 
+; Dummy item for empty menus
+; --------------------------------------------------
+Disabled:
+	MsgBox, % "This item is disabled"
+Return
 
-;  _[ Launch Startup Applications ]__________________/*{{{*/
-; |                                                  |
-; | Loads the settings for the applications that     |
-; | should run on startup, then runs each one.       |
-; |__________________________________________________|
+; --------------------------------------------------
+; Launch Startup Applications
+; --------------------------------------------------
 LaunchStartupApplications:
-	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\EasyDrag7.ahk"
-	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\Volume.ahk"
-	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\Snippets.ahk"
-	Run, "%AUTOHOTKEY_EXE%" "%AHK_DIR%\LiveWindows.ahk"
-return ; /*}}}*/
+	for script, isEnabled in Roamer.Autoload
+		if(isEnabled)
+			Run, % """" . Roamer.Ahk """" . " """ . Roamer.ScriptDir . "\" . script . """"
+Return
 
-;  _[ Make Start Menu ]______________________________ /*{{{*/
-; |                                                  |
-; | Make the start menu dialog. Parse settings,      |
-; | build program list.                              |
-; |__________________________________________________|
+; --------------------------------------------------
+; Make Start Menu
+; --------------------------------------------------
 MakeStartMenu:
-	; Add the picture
-	Gui, Add, Picture, x10 y2 h40 w72, Resources\img\flash-drive.png
-	; Determine the size
-	Gui, Show, Hide w%MENU_WIDTH% h%MENU_HEIGHT%, Start Menu
-	; Remove the caption and border
-	Gui, -Caption
+	; - Programs Menu ---------------------------8<-----
+	; ------------------------------------------>8------
+	
+	; - Scripts Menu ----------------------------8<-----
+	Count := 0
+	
+	Loop, % A_ScriptDir . "\*.ahk"
+	{
+		; Skip Roamer.ahk
+		if(A_LoopFileName = "Roamer.ahk")
+			Continue
+		Menu, ScriptsMenu, Add, % A_LoopFileName, RunScript
+		if(Roamer.Autoload[A_LoopFileName])
+			Menu, ScriptsMenu, Check, % A_LoopFileName
+		Count += 1
+	} 
+	
+	; If no files were found, then show an item saying nothing was found
+	if(!Count) 
+	{
+		; Add an item to say that scripts aren't found
+		Menu, ScriptsMenu, Add, (No Scripts), Disabled
+		; Ensure the added item is disabled
+		Menu, ScriptsMenu, Disable, (No Scripts)
+	}
+	; ------------------------------------------>8------	
+	
+	Menu, StartMenu, Add, Scripts, :ScriptsMenu
+Return
 
-	; Read all the menu entries
-return ; /*}}}*/
+SaveSettings()
+{
+	global Roamer
+	
+	file := FileOpen(Roamer.ConfigFile, "w")
+	file.WriteLine("Autoload:")
+	
+	for script, isEnabled in Roamer.Autoload
+		if(isEnabled) 
+			file.WriteLine("`t" . script . ": " . isEnabled)
+	
+	file.Close()
+}
 
-;  _[ Setup Tray Menu ]______________________________ /*{{{*/
-; |                                                  |
-; | setup the tray icon to have the application menu |
-; | and the custom icons that go with it.            |
-; |__________________________________________________|
+; --------------------------------------------------
+; Setup Tray Menu
+; --------------------------------------------------
 SetupTrayMenu:
 	; Set the tray icon	
 	Menu, Tray, Icon, .\Resources\Images\flash-drive.ico
@@ -103,82 +130,35 @@ SetupTrayMenu:
 	; Make the start menu
 	Gosub MakeStartMenu
 	; Add the custom start menu entry
-	Menu, Tray, Add, Start Menu, StartMenu
+	Menu, Tray, Add, Start Menu, ShowStartMenu
 	; Make the start menu the default
 	Menu, Tray, Default, Start Menu
 	; Allow single click
 	Menu, Tray, Click, 1
 return ; /*}}}*/
 
-;  _[ Show Start Menu ]______________________________/*{{{*/
-; |                                                  |
-; | Show the start menu                              |
-; |__________________________________________________|
-StartMenu:
-	ShowStartMenu()
-return
-ShowStartMenu()
-{
-	global MENU_WIDTH, MENU_HEIGHT
-	global guiVisible
-	
-	if (guiVisible = 1) {
-		HideStartMenu()
-	} else {
-		CoordMode, Mouse, Screen
-		MouseGetPos, mouseX, mouseY
+; --------------------------------------------------
+; Show Start Menu
+; --------------------------------------------------
+ShowStartMenu: 
+	Menu, StartMenu, Show
+Return
 
-		; Figure out where we should put the menu
-		x := mouseX
-		y := mouseY - MENU_HEIGHT
-
-		; Make sure the menu isn't running off the screen
-		if(x > A_ScreenWidth - MENU_WIDTH) {
-			x = A_ScreenWidth - MENU_WIDTH
-		}
-		
-		; Finally, show the menu
-		Gui, Show, x%x% y%y%
-		; Remember that the GUI is visible
-		guiVisible = 1
-	}
-} ;/*}}}*/
-
-;  _[ WM_ACTIVATE ]__________________________________ /*{{{*/
-; |                                                  |
-; | Called when the gui window gets or loses focus   |
-; |__________________________________________________|
-WM_ACTIVATE(wParam, lParam, msg, hwnd)
-{
-	OutputDebug, WM_ACTIVATE wParam: %wParam% lParam: %lParam% hwnd: %hwnd%
-	
-	if(wParam = 0) ; wParam 0 means lost focus
+; --------------------------------------------------
+; Run Script
+; --------------------------------------------------
+RunScript:
+	if(GetKeyState("SHIFT"))
 	{
-		HideStartMenu()
+		Roamer.Autoload.Insert(A_ThisMenuItem, !Roamer.Autoload[A_ThisMenuItem])
+		if(Roamer.Autoload[A_ThisMenuItem])
+			Menu, ScriptsMenu, Check, % A_ThisMenuItem
+		else
+			Menu, ScriptsMenu, Uncheck, % A_ThisMenuItem
+		SaveSettings()
 	}
-} ; /*}}}*/
-
-;  _[ Main ]_________________________________________ /*{{{*/
-; |                                                  |
-; | Main program entry point                         |
-; |__________________________________________________|
-Main:
-	; Change into the base directory of the script
-	SetWorkingDir %A_ScriptDir%/../../
-	
-	; Constants
-	APPLICATIONS_DIR = %A_WorkingDir%\Resources\Applications
-	AHK_DIR = %A_WorkingDir%\Resources\Scripts
-	AUTOHOTKEY_EXE = %APPLICATIONS_DIR%\AutoHotkey\AutoHotkey.exe
-
-	; Listen to messages
-	OnMessage(WM_LBUTTONDOWN , "WM_LBUTTONDOWN" )
-	OnMessage(WM_LBUTTONUP   , "WM_LBUTTONUP"   )
-	OnMessage(WM_ACTIVATE    , "WM_ACTIVATE"    )
-
-	; Setup the menu that should show in the tray
-	Gosub SetupTrayMenu
-	; Run the applications
-	Gosub LaunchStartupApplications
-return ; /*}}}*/
-
+	else
+	{
+		Run, % AUTOHOTKEY_EXE . " " . SCRIPT_DIR . "\" .  A_ThisMenuItem
+	}
+Return

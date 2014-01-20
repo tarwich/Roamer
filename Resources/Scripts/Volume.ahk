@@ -1,39 +1,34 @@
 #SingleInstance force
 #NoTrayIcon
+#include <AutoUpdate>
 
 ;---------- Volume OSD
 
 ;------ User Variables ( Feel free to change these )
 
-Gui_X				:= ""
-Gui_Y				:= "y50"
-
-
-Back_Colour			:= 0x000000
-Font_Colour			:= 0xFFFFFF
-BackBar_Colour		:= 0x000000
-Bar_Colour			:= 0x0000FF
-
-
-VolUp_Key			:= "#WheelUp"
-VolDown_Key			:= "#WheelDown"
-VolMute_Key			:= "#MButton"
-Ammount				:= 2
-
-Timeout				:= 700
-
-Max_Trans			:= 200
+Gui_X          := ""
+Gui_Y          := "y50"
+Back_Colour    := 0x000000
+Font_Colour    := 0xFFFFFF
+BackBar_Colour := 0x000000
+Bar_Colour     := 0x0000FF
+VolUp_Keys     := ["#WheelUp", "#UP"]
+VolDown_Keys   := ["#WheelDown", "#DOWN"]
+VolMute_Keys   := [ "#MButton", "#ESC" ]
+Ammount        := 2
+Timeout        := 700
+Max_Trans      := 200
 
 
 ;------- End of user variables
 
 
-Update 				:= 0
+Update              := 0
 
 SoundGet, Vol
-Curr_Vol			:= Vol
+Curr_Vol            := Vol
 
-Trans 				:= Max_Trans
+Trans               := Max_Trans
 
 Gui, -Caption +ToolWindow +AlwaysOnTop 
 Gui, Color, % Back_Colour, 
@@ -52,9 +47,12 @@ WinSet, Transparent, %Trans%, Vol_OSD
 
 
 ; Gui, -Caption +AlwaysOnTop +ToolWindow +E0x20 +SysMenu
-Hotkey, % VolUp_Key, Volume_Up
-Hotkey, % VolDown_Key, Volume_Down
-Hotkey, % VolMute_Key, Volume_MuteUnmute
+for i, key in VolUp_keys
+	Hotkey, % key, Volume_Up
+for i, key in VolDown_Keys
+	Hotkey, % key, Volume_Down
+for i, key in VolMute_Keys 
+	Hotkey, % key, Volume_MuteUnmute
 SetTimer, Update, 50
 
 SetTimer, Fade, % "-" Timeout
@@ -64,7 +62,7 @@ return
 
 Fade:
 	While ( Trans > 0 && Update = 0)
-	{	Trans -= 10
+	{   Trans -= 10
 		WinSet, Transparent, % Trans, Vol_OSD
 		Sleep, 5
 	}
@@ -72,20 +70,20 @@ Return
 
 
 Update:
-	Update				:= 0
+	Update              := 0
 	SoundGet, Vol
 	If ( Vol <> Curr_Vol )
-	{	Update 			:= 1
+	{   Update          := 1
 		GuiControl,, Progress, % Vol
 		RegExMatch( Vol, "(?<Percent>\d+)\.", rg )
 		GuiControl,, Vol, % rgPercent
-		Curr_Vol 		:= Vol
+		Curr_Vol        := Vol
 		
 		While ( Trans < Max_Trans )
-		{	Trans 		+= 20
+		{   Trans       += 20
 			WinSet, Transparent, % Trans, Vol_OSD 
 			Sleep 1
-		}	
+		}   
 		SetTimer, Fade, % "-" Timeout
 	}
 Return

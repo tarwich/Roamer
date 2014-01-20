@@ -3,6 +3,7 @@
 OnExit handle_exit
 #SingleInstance Force
 #NoEnv
+#NoTrayIcon
 SetBatchLines -1
 SetWinDelay 0               ; larger values also fail under heavy load, changing windows
 Process Priority,,Above Normal
