@@ -1,6 +1,5 @@
 #SingleInstance force
 #Persistent
-#Include <AutoUpdate>
 
 ; --------------------------------------------------
 ; Main
@@ -87,8 +86,14 @@ MakeStartMenu:
 		if(A_LoopFileName = "Roamer.ahk")
 			Continue
 		Menu, ScriptsMenu, Add, % A_LoopFileName, RunScript
+		; Add the icon if available
+		ico := SubStr(A_LoopFileFullPath, 1, -4) . ".ico"
+		if(FileExist(ico))
+			Menu, ScriptsMenu, Icon, % A_LoopFileName, % ico
+		; Make the checkbox for the item
 		if(Roamer.Autoload[A_LoopFileName])
 			Menu, ScriptsMenu, Check, % A_LoopFileName
+		
 		Count += 1
 	} 
 	

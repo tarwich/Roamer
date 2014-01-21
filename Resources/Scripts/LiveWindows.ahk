@@ -4,8 +4,7 @@
 #NoEnv
 #KeyHistory 0
 SetWorkingDir %A_ScriptDir%
-#include %A_ScriptDir%\lib\Thumbnail.ahk
-#include %A_ScriptDir%\lib\AutoUpdate.ahk
+#include <Thumbnail>
 
 ;--- Script to monitior a window or section of a window (such as a progress bar, or video) in a resizable live preview window
 

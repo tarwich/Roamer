@@ -1,6 +1,5 @@
 #SingleInstance force
 #NoTrayIcon
-#include <AutoUpdate>
 
 ;---------- Volume OSD
 
