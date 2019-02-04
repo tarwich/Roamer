@@ -1,1 +1,1 @@
-%~dp0bin\AutoHotkeyU32.exe %~dp0roamer.ahk
+"%~dp0bin\AutoHotkeyU32.exe" "%~dp0roamer.ahk"
