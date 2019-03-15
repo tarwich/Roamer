@@ -4,7 +4,7 @@
 
 Editor := "\Program Files\Microsoft VS Code\Code.exe"
 
-RButton & MButton::
+Alt & MButton::
 Media_Play_Pause::
   hwnd := WinGetId("ahk_class mpv")
 
@@ -13,9 +13,5 @@ Media_Play_Pause::
   }
 Return
 
-$RButton::
-  Send "{RButton}"
-Return
-
-RButton & WheelUp::Send "{Volume_Up}"
-RButton & WheelDown::Send "{Volume_Down}"
+Alt & WheelUp::Send "{Volume_Up}"
+Alt & WheelDown::Send "{Volume_Down}"
