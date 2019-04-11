@@ -1,5 +1,7 @@
 #SingleInstance force
 
+DetectHiddenWindows("On")
+
 Editor := "\Program Files\Microsoft VS Code\Code.exe"
 
 SetWorkingDir(A_ScriptDir)
