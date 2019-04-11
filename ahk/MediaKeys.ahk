@@ -1,7 +1,7 @@
 ; #InstallKeybdHook
 ; #InstallMouseHook
 #SingleInstance force
-; #NoTrayIcon
+#NoTrayIcon
 #MaxHotkeysPerInterval 100
 
 ; Hotkey("^!+r", () => Reload())
