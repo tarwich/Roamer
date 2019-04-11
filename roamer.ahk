@@ -77,8 +77,9 @@ class Module {
       return True
     }
 
-    DetectHiddenWindows(True)
-    this.pid := WinGetPID(this.scriptPath " ahk_class AutoHotkey")
+    for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process Where Name = 'AutoHotkeyU64.exe' AND CommandLine LIKE '%" A_ScriptName "%'") {
+      this.pid := process.Handle
+    }
 
     return this.pid and ProcessExist(this.pid)
   }
