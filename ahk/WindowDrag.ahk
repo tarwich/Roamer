@@ -60,7 +60,7 @@ class WindowDrag {
 
     if (this.xRegion = 0) {
       newX := max(0, this.original.X + diffX)
-      newWidth := this.original.width + (this.original.y - newX)
+      newWidth := this.original.width + (this.original.x - newX)
     }
     else if (this.xRegion = 1 and this.yRegion = 1)
       newX := min(right - newWidth, max(0, this.original.x + diffX))
