@@ -20,6 +20,7 @@ class Menu {
   __New() {
     this.menu := MenuCreate()
     this.items := []
+    SetTimer(ObjBindMethod(this, "Restart"), 1000 * 60 * 60)
   }
 
   Add(name, callback) {
@@ -31,6 +32,10 @@ class Menu {
 
   Rename(a, b) {
     this.menu.Rename(a, b)
+  }
+
+  Restart() {
+    Reload
   }
 
   Show() {
